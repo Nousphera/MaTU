@@ -1,0 +1,1 @@
+{"backend":"imagefolder","model":"vit_base_patch32_224.augreg_in21k","manifest":"configs/tasks.json","seed":42,"rounds":100,"clients":30,"local_epochs":1,"batch_size":32,"learning_rate":0.0001,"rank":16,"participation":0.2,"dirichlet_alpha":0.1,"head_rounds":1,"top_k":2,"device":"cuda","output":"runs/vision"}

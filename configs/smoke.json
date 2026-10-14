@@ -1,0 +1,1 @@
+{"backend":"synthetic","seed":42,"rounds":3,"clients":3,"tasks":3,"samples":96,"local_epochs":1,"batch_size":16,"learning_rate":0.01,"rank":4,"participation":1.0,"head_rounds":2,"top_k":2,"output":"runs/smoke"}

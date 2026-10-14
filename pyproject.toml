@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matu-fl"
+version = "0.1.0"
+description = "Many-task federated adaptation through unified task vectors"
+license = {file = "LICENSE"}
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = ["numpy>=1.26,<2", "torch==2.5.1", "torchvision==0.20.1", "timm==1.0.15"]
+
+[project.optional-dependencies]
+flower = ["flwr[simulation]==1.40.0"]
+test = ["pytest>=8,<9"]
+
+[project.scripts]
+matu = "matu.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["matu*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.flwr.app]
+publisher = "nousphera"
+
+[tool.flwr.app.components]
+serverapp = "matu.flower:server_app"
+clientapp = "matu.flower:client_app"
+
+[tool.flwr.app.config]
+config = "configs/smoke.json"
+
+[tool.flwr.federations]
+default = "local-simulation"
+
+[tool.flwr.federations.local-simulation]
+options.num-supernodes = 3
+options.backend.client-resources.num-cpus = 1
+options.backend.client-resources.num-gpus = 0.0

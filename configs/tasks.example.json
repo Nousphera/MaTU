@@ -1,0 +1,4 @@
+{
+  "mnist": {"train":"../data/mnist/train","test":"../data/mnist/test"},
+  "svhn": {"train":"../data/svhn/train","test":"../data/svhn/test"}
+}
