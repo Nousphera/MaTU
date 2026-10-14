@@ -13,6 +13,9 @@ This release provides a **paper-based reference implementation**, seeded trainin
 ## Quick start
 
 Python 3.11 or 3.12. The default CPU example downloads no data or models.
+The tested macOS arm64 stack uses PyTorch 2.14.1, torchvision 0.29.1 and timm 1.0.30.
+See the [resolved environment](requirements-tested-macos-py311.txt) and
+[validation scope](docs/reproduction.md#validation).
 
 ```bash
 python3.11 -m venv .venv

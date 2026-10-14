@@ -33,6 +33,31 @@ This implementation is independently written from the public paper using public 
 
 ## Validation
 
+On 2026-10-15, a fresh macOS arm64 environment with Python 3.11.15, PyTorch
+2.14.1, torchvision 0.29.1, timm 1.0.30, Flower 1.40.0 and Ray 2.55.1 passed
+`pip check` and all **14 tests**. This includes actual CPU optimization, a timm
+vision-model forward/backward pass and Flower Message API checks.
+
+The sequential and Flower commands both completed `configs/smoke.json` unchanged
+(three clients, three tasks, three rounds and two head-probing rounds):
+
+```bash
+matu --config configs/smoke.json --output runs/current-sequential
+matu --flower --config configs/smoke.json --output runs/current-flower
+```
+
+Both runs preserved the frozen-backbone hash, changed the adapters, and produced
+identical partition indices and per-round accuracy. Saved task vectors and heads
+agreed within `rtol=1e-6, atol=1e-6` (largest absolute difference `1.79e-7`).
+Transport byte counts differ because Flower adds its records. These are execution
+checks on synthetic data, not evidence of paper accuracy.
+
+The maintained dependency pins exclude the PyTorch versions affected by
+[GHSA-53q9-r3pm-6pq6](https://github.com/advisories/GHSA-53q9-r3pm-6pq6),
+which is fixed starting at 2.6.0. The exact tested environment is recorded in
+[`requirements-tested-macos-py311.txt`](../requirements-tested-macos-py311.txt).
+Linux/CUDA and the complete vision benchmark have not been validated on this stack.
+
 `python -m pytest` and the smoke configuration exercise forward/backward optimization, modulation, payload roundtrips, aggregation, evaluation and checkpoint writing. The frozen-backbone check detects unintended parameter changes and records a SHA-256 digest of parameter names and bytes. Archive the exact pretrained checkpoint as well as this digest for image experiments; the timm model name alone is not an immutable weight revision.
 
 Test data is never used for optimization or checkpoint selection. The checkpoint records task vectors and heads; reconstructing the full pretrained model additionally requires the selected timm weights. Save configuration and dependency versions with every run.
