@@ -63,3 +63,29 @@ Linux/CUDA and the complete vision benchmark have not been validated on this sta
 Test data is never used for optimization or checkpoint selection. The checkpoint records task vectors and heads; reconstructing the full pretrained model additionally requires the selected timm weights. Save configuration and dependency versions with every run.
 
 No paper result is claimed as reproduced. Larger vision benchmarks require acquired datasets and substantial compute; record those commands and results separately.
+
+
+### Dataset setup and native CLI follow-up
+
+The preparation CLI supports official torchvision downloads for MNIST, SVHN,
+GTSRB and DTD, plus explicit ImageFolder/CSV imports for the remaining tasks.
+It records hashes and source paths, preserves raw data and rejects split overlap.
+`manifest` paths in training configs now resolve relative to the config file;
+relative app configs resolve within the unpacked Flower bundle, not the SuperLink's cwd.
+
+On 2026-10-15, the complete suite passed 19 tests. The actual `flwr run .`
+command completed the three-client/three-task/three-round synthetic configuration,
+with two head-probing rounds, changed adapters and an unchanged backbone.
+A separate native run imported two generated ImageFolder tasks (8 train and
+8 test images per task), trained a random `vit_tiny_patch16_224` with rank-2
+LoRA on two clients for one round, and saved real model/metric artifacts.
+Both runs had Flower status `finished:completed`. The image run retained the
+frozen-backbone hash and transmitted 158,918 upload bytes and 167,124 download
+bytes. These fixtures validate execution, not benchmark accuracy.
+
+Native Flower 1.40 uses flat federation overrides, such as
+`num-supernodes=3 client-resources-num-cpus=1 init-args-num-cpus=2`.
+The old TOML federation block was removed because automatic migration changes
+behavior across fresh user configurations. The README supplies explicit counts.
+Runtime failures can still leave the CLI exit code at zero; inspect the saved
+metrics and Flower run status rather than relying only on shell success.

@@ -17,6 +17,7 @@ test = ["pytest>=8,<9"]
 
 [project.scripts]
 matu = "matu.cli:main"
+matu-data = "matu.prepare_data:main"
 
 [tool.setuptools.packages.find]
 include = ["matu*"]
@@ -33,11 +34,4 @@ clientapp = "matu.flower:client_app"
 
 [tool.flwr.app.config]
 config = "configs/smoke.json"
-
-[tool.flwr.federations]
-default = "local-simulation"
-
-[tool.flwr.federations.local-simulation]
-options.num-supernodes = 3
-options.backend.client-resources.num-cpus = 1
-options.backend.client-resources.num-gpus = 0.0
+output = ""

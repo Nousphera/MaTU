@@ -1,96 +1,103 @@
 # MaTU
 
 **Many-Task Federated Fine-Tuning via Unified Task Vectors**
-Vasileios Tsouvalas · Tanir Ozcelebi · Nirvana Meratnia
-FedGenAI @ IJCAI 2025
 
-[Paper](https://arxiv.org/abs/2502.06376) · [Project](https://nousphera.github.io/MaTU/) · [Poster](https://nousphera.github.io/MaTU/poster.pdf)
+Vasileios Tsouvalas · Tanir Ozcelebi · Nirvana Meratnia · FedGenAI @ IJCAI 2025
 
-One shared update, several tasks. MaTU combines local task updates into a **unified vector**, retains a compact **binary mask and scale per task**, and transfers knowledge between related tasks through sign-based aggregation.
+[Paper](https://arxiv.org/abs/2502.06376) · [Project](https://nousphera.github.io/MaTU/) · [Poster](https://nousphera.github.io/assets/posters/matu-a0-landscape.pdf)
 
-This release provides a **paper-based reference implementation**, seeded training, and a Flower App. Recovered research folders contained adaptation experiments but no complete MaTU federated runner. This is therefore a documented reconstruction, **not a recovered artifact reproducing the published numbers**. See [paper correspondence](docs/reproduction.md).
+## Abstract
 
-## Quick start
+Federated Learning (FL) traditionally assumes homogeneous client tasks; however, in real-world scenarios, clients often specialize in diverse tasks, introducing task heterogeneity. To address this challenge, Many-Task FL (MaT-FL) has emerged, enabling clients to collaborate effectively despite task diversity. Existing MaT-FL approaches rely on client grouping or personalized layers, requiring the server to manage individual models and failing to account for clients handling multiple tasks. We propose MaTU, a MaT-FL approach that enables joint learning of task vectors across clients, eliminating the need for clustering or client-specific weight storage at the server. MaTU constructs a single “unified” task vector per client and leverages lightweight task-specific modulators — binary masks and scalar rescalers — to disentangle and adapt per-task behavior. This design ensures stateless server aggregation and naturally scales to large task sets with minimal communication overhead. Evaluated across 30 datasets, MaTU achieves superior performance over state-of-the-art MaT-FL approaches, with results comparable to per-task fine-tuning, while delivering significant communication savings.
 
-Python 3.11 or 3.12. The default CPU example downloads no data or models.
-The tested macOS arm64 stack uses PyTorch 2.14.1, torchvision 0.29.1 and timm 1.0.30.
-See the [resolved environment](requirements-tested-macos-py311.txt) and
-[validation scope](docs/reproduction.md#validation).
+This is a **paper-based reference implementation** with real LoRA optimization and a Flower App. A complete original federated runner was not recovered. The code implements the method, but does not establish reproduction of the published scores; [paper correspondence](docs/reproduction.md) records the explicit protocol choices.
 
-```bash
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[test]'
-matu --config configs/smoke.json
-python -m pytest
-```
+## Setup
 
-The example performs real low-rank adapter training across three clients and three tasks. Results, configuration, exact partition indices and the final checkpoint are saved under `runs/smoke/`. Synthetic accuracy is an execution check, not a research result. Existing output folders are protected; use `--output runs/another-run` when repeating a run.
-
-## Method
-
-| Stage | Implementation |
-| --- | --- |
-| Local adaptation | Frozen backbone; task-specific LoRA updates relative to a common initialization |
-| Unification | Aggregate-sign election and maximum aligned magnitude; binary mask and scalar per task |
-| Same-task aggregation | Sample-count weighting and coordinate-wise sign agreement |
-| Cross-task transfer | Sign similarity, strict >0.5 threshold, top-κ neighbors, self excluded |
-| Communication | Float32 unified vector, bit-packed masks and explicit metadata; actual encoded sizes |
-| Execution | Sequential simulator and Flower Message API using the same algorithm |
-
-The server retains task-level vectors, not a persistent model per client. Tasks absent from a round keep their previous vector.
-
-## Image classification
-
-Prepare disjoint train/test ImageFolder directories with identical class mappings:
-
-```text
-data/mnist/train/<class>/*.png
-data/mnist/test/<class>/*.png
-data/svhn/train/<class>/*.png
-data/svhn/test/<class>/*.png
-```
+Use **Python 3.11 or 3.12** on Linux or macOS. Keep the virtual environment in a path without spaces so Ray can start its workers.
 
 ```bash
-cp configs/tasks.example.json configs/tasks.json
-# Edit dataset paths and the device/settings in configs/vision.json.
-matu --config configs/vision.json
-```
-
-The vision runner uses ImageNet-21k-pretrained ViT-B/32 through `timm` and rank-16 adapters. A manifest can contain any number of classification datasets, including the paper's SUN397, Cars, RESISC45, EuroSAT, SVHN, GTSRB, MNIST and DTD. Acquire official datasets separately and preserve their official splits.
-
-Class allocation is seeded Dirichlet. Set explicit task ownership with e.g. `"assignments": [["mnist"], ["svhn"], ["mnist", "svhn"]]` and `"clients": 3`. Without assignments, all clients hold every task; this **does not reproduce the paper's task-concentration distribution**.
-
-Task classifiers have different output dimensions. The runner obtains shared per-task heads through initial federated linear probing and freezes them for MaTU rounds. This is a disclosed protocol choice; preparation bytes are counted separately.
-
-## Flower App
-
-```bash
+git clone https://github.com/Nousphera/MaTU.git
+cd MaTU
+python3.11 -m venv "$HOME/.venvs/matu"
+source "$HOME/.venvs/matu/bin/activate"
+python -m pip install --upgrade pip
 python -m pip install -e '.[flower,test]'
-matu --flower --config configs/smoke.json
 ```
 
-The tested convenience command invokes the same Flower ClientApp/ServerApp through Ray. The app declarations are included for Flower bundling; the convenience command above is the verified execution path. On macOS, install the environment in a path without spaces because Ray worker launch fails with spaced virtualenv paths.
+The maintained stack pins PyTorch 2.14.1, torchvision 0.29.1, timm 1.0.30 and Flower 1.40.0. For Linux CPU, install PyTorch/torchvision from their [CPU wheel index](https://pytorch.org/get-started/locally/) before the editable install. The CPU setup and tests are verified; full GPU benchmarks are not rerun.
 
-Default simulation: three clients. The Flower supernode count must match the JSON `clients` setting. Use `matu --flower --config configs/vision.json` for another configuration; its `clients` value sets the simulation size. Worker environments must have access to dataset paths. The app targets local research simulation; private dataset provisioning and production authentication are not supplied.
+## Prepare datasets
 
-## Reproducibility
+Download official splits and export verified RGB ImageFolders:
 
-- **Saved:** config, seed, exact partitions, per-task accuracy, preparation traffic, upload/download bytes, frozen-backbone SHA-256 and checkpoint.
-- **Checked:** numerical aggregation edge cases, serialized client updates, real CPU optimization and frozen-backbone invariants.
-- **Not established:** original eight/30-task accuracy, published bitrate, seed uncertainty or GPU benchmark performance.
+```bash
+python -m matu.prepare_data --dataset mnist --download --root data
+python -m matu.prepare_data --dataset svhn --download --root data
+python -m matu.prepare_data --combine data/mnist/tasks.json data/svhn/tasks.json \
+  --output configs/tasks.json
+python -m matu.prepare_data --dataset mnist --root data --validate-only
+```
 
-Payload sizes include the implemented container and metadata; Flower additionally counts its content records. Neither is TCP/TLS traffic or directly interchangeable with the paper's bitrate. See [reproduction notes](docs/reproduction.md) and the platform-specific dependency lock.
+MNIST, SVHN, GTSRB and DTD have automatic torchvision acquisition. DTD uses partition 1 train/test; its validation split is excluded. For SUN397, Cars, RESISC45, EuroSAT or another task, import your acquired data with existing `train/<class>/images` and `test/<class>/images` directories:
 
-## Structure
+```bash
+python -m matu.prepare_data --dataset eurosat --source /path/to/split-eurosat --root data
+```
 
-```text
-matu/core.py       unification, modulation, aggregation and payloads
-matu/training.py   LoRA models, partitions, training and evaluation
-matu/flower.py     Flower client/server applications
-configs/          smoke and vision configurations
-tests/            numerical, transport and training checks
-docs/             project website and reproduction notes
+Alternatively, preserve published split lists in a CSV with `path,split,label` columns (`split` is `train` or `test`; paths are relative to the source root):
+
+```bash
+python -m matu.prepare_data --dataset sun397 --source /path/to/SUN397 \
+  --split-file /path/to/sun397-splits.csv --root data
+```
+
+Preparation preserves raw files, checks decoding and class consistency, rejects overlapping source files, and writes **SHA-256 hashes, source IDs, split policy and a portable `tasks.json`**. It refuses to overwrite an existing dataset. Combine any number of task manifests with `--combine`. [Dataset guide](docs/datasets.md) covers all eight benchmark datasets, split provenance and the CSV format.
+
+## Run the Flower App
+
+A three-client, three-task CPU execution check needs no dataset or model download:
+
+```bash
+flwr run . --run-config 'output="/tmp/matu-smoke"' \
+  --federation-config 'num-supernodes=3 init-args-num-cpus=2 client-resources-num-cpus=1' --stream
+```
+
+Use a new output directory for every run. The app performs task-head probing, local LoRA training, unified-vector exchange, same-task aggregation and cross-task transfer. Synthetic accuracy is an execution check, not a benchmark score.
+
+For prepared images, edit `configs/vision.json` (device, client count and experiment size), then run:
+
+```bash
+flwr run . --run-config "config=\"$(pwd)/configs/vision.json\" output=\"$(pwd)/runs/vision-01\"" \
+  --federation-config 'num-supernodes=30' --stream
+```
+
+`num-supernodes` must equal the JSON `clients` value. `manifest` resolves relative to its JSON config; dataset paths resolve relative to the task manifest. Use absolute config/output paths for worker processes. The paper-sized example uses ImageNet-21k-pretrained ViT-B/32, rank-16 adapters and CUDA; weights download through timm on first use. GPU scheduling instructions and a smaller image configuration are in [the dataset guide](docs/datasets.md).
+
+Flower 1.40 runs a managed local SuperLink. If another project already has one running, use a separate state directory **and ports** before launching:
+
+```bash
+export FLWR_HOME="$HOME/.cache/matu-flower"
+export FLWR_LOCAL_SUPERLINK_HTTP_API_PORT=39131
+export FLWR_LOCAL_CONTROL_API_PORT=39133
+```
+
+See [Flower's simulation guide](https://flower.ai/docs/framework/how-to-run-simulations.html). Worker machines must have access to the configured data paths. This repository targets local research simulations.
+
+## Outputs and reproducibility
+
+Each output directory contains `metrics.json`, `config.json`, `partitions.json` and `final.pt`: per-task accuracy, exact partitions, seed, checkpoint, backbone hash and encoded communication counts. Preparation traffic is reported separately. Record the dataset manifests alongside results.
+
+- **Task ownership:** explicit `assignments` can specify tasks per client. The default gives every client every task, rather than recreating the paper's concentration distribution.
+- **Task heads:** initial federated linear probing creates shared heads, then freezes them. This is a disclosed implementation choice.
+- **Communication:** reported bytes cover serialized records and payloads, not TCP/TLS traffic or the paper's exact bitrate convention.
+- **Validation:** numerical aggregation, actual optimization, frozen-backbone invariants, dataset integrity and Flower transport are checked. Full eight/30-task scores and accelerator benchmarks remain unverified.
+
+For a sequential debugging run with the same method:
+
+```bash
+matu --config configs/smoke.json --output runs/sequential-01
+python -m pytest
 ```
 
 ## Cite

@@ -12,3 +12,17 @@ jobs:
       - run: python -m pip install -e '.[flower,test]'
       - run: python -m pytest
       - run: matu --config configs/smoke.json
+      - name: Native Flower App smoke
+        env:
+          FLWR_DISABLE_RUNTIME_DEPENDENCY_INSTALLATION: '1'
+        run: |
+          flwr run . --stream --run-config "output='$(pwd)/runs/flower-smoke'" \
+            --federation-config 'num-supernodes=3 client-resources-num-cpus=1 init-args-num-cpus=2'
+          python - <<'PYVERIFY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path("runs/flower-smoke/metrics.json").read_text())
+          assert result["rounds"] == 3 and result["backbone_unchanged"]
+          assert result["adapter_change"] > 0 and result["upload_bytes"] > 0
+          assert Path("runs/flower-smoke/final.pt").is_file()
+          PYVERIFY

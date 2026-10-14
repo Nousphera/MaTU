@@ -176,6 +176,10 @@ def load_tasks(config):
         )
         if train.class_to_idx != test.class_to_idx:
             raise ValueError(f"{name}: train/test class mappings differ")
+        train_ids = {(Path(p).stat().st_dev, Path(p).stat().st_ino) for p, _ in train.samples}
+        test_ids = {(Path(p).stat().st_dev, Path(p).stat().st_ino) for p, _ in test.samples}
+        if train_ids & test_ids:
+            raise ValueError(f"{name}: train/test files overlap")
         tasks[name] = (train, test, len(train.classes), np.asarray(train.targets))
     if not tasks:
         raise ValueError("No tasks in manifest")

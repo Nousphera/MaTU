@@ -3,7 +3,8 @@
 import argparse
 import json
 from pathlib import Path
-from .training import DEFAULTS, run
+from .training import run
+from .configuration import load_app_config
 
 
 def main():
@@ -16,7 +17,7 @@ def main():
         help="Run the Flower App through local Ray workers",
     )
     args = parser.parse_args()
-    config = {**DEFAULTS, **json.loads(args.config.read_text())}
+    config = load_app_config({"config": str(args.config.resolve())})
     if args.output:
         config["output"] = str(args.output)
     if args.flower:

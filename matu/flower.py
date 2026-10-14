@@ -9,6 +9,7 @@ from flwr.app import ArrayRecord, ConfigRecord, Message, RecordDict
 from flwr.clientapp import ClientApp
 from flwr.serverapp import ServerApp
 
+from .configuration import load_app_config
 from .core import ClientUpdate, UnifiedVector, unify
 from .training import (
     DEFAULTS,
@@ -110,12 +111,10 @@ def main(grid, context):
 
 
 def run_grid(grid, context, config_override=None):
-    from pathlib import Path
-
     supplied = (
         config_override
         if config_override is not None
-        else json.loads(Path(context.run_config["config"]).read_text())
+        else load_app_config(context.run_config)
     )
     cfg = {**DEFAULTS, **supplied}
     check_output_directory(cfg)
