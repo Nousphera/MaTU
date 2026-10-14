@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "Please cite the associated research paper."
+title: "Many-Task Federated Fine-Tuning via Unified Task Vectors"
+type: article
+authors:
+  - name: "Vasileios Tsouvalas"
+  - name: "Tanir Ozcelebi"
+  - name: "Nirvana Meratnia"
+url: https://arxiv.org/abs/2502.06376
