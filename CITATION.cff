@@ -1,9 +1,25 @@
 cff-version: 1.2.0
 message: "Please cite the associated research paper."
+type: software
 title: "Many-Task Federated Fine-Tuning via Unified Task Vectors"
-type: article
 authors:
-  - name: "Vasileios Tsouvalas"
-  - name: "Tanir Ozcelebi"
-  - name: "Nirvana Meratnia"
-url: https://arxiv.org/abs/2502.06376
+  - family-names: "Tsouvalas"
+    given-names: "Vasileios"
+  - family-names: "Ozcelebi"
+    given-names: "Tanir"
+  - family-names: "Meratnia"
+    given-names: "Nirvana"
+repository-code: https://github.com/Nousphera/MaTU
+url: https://nousphera.github.io/MaTU/
+preferred-citation:
+  type: article
+  title: "Many-Task Federated Fine-Tuning via Unified Task Vectors"
+  authors:
+    - family-names: "Tsouvalas"
+      given-names: "Vasileios"
+    - family-names: "Ozcelebi"
+      given-names: "Tanir"
+    - family-names: "Meratnia"
+      given-names: "Nirvana"
+  year: 2025
+  url: https://arxiv.org/abs/2502.06376
