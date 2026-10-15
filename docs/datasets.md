@@ -13,9 +13,9 @@ Use `python -m matu.prepare_data --help` for the complete CLI. The output is a p
 | SUN397 | [SUN database](https://vision.princeton.edu/projects/2010/SUN/) | Import a split CSV derived from the official training/testing list pair; record the selected partition |
 | Stanford Cars | [Stanford Cars](https://ai.stanford.edu/~jkrause/cars/car_dataset.html) | Import acquired images and their official annotation-defined train/test split; original automatic download endpoints are unavailable |
 | RESISC45 | [NWPU dataset authors](https://www.escience.cn/people/JunweiHan/NWPU-RESISC45.html) | Import acquired data and explicit split assignments; there is no built-in unique train/test split |
-| EuroSAT | [EuroSAT authors](https://github.com/phelber/EuroSAT) | Import acquired RGB data and explicit split assignments; do not silently invent the historical split |
+| EuroSAT | [EuroSAT authors](https://github.com/phelber/EuroSAT) | Import acquired RGB data and explicit split assignments |
 
-Downloaded task commands accept `--root data`. All other tasks accept `--source /path/to/data` with `train/<class>/...` and `test/<class>/...`, or `--split-file splits.csv`. The script supports any additional image-classification task via these same formats. Exact original eight/30-task membership, partitions and task ownership are not recovered automatically.
+Downloaded task commands accept `--root data`. All other tasks accept `--source /path/to/data` with `train/<class>/...` and `test/<class>/...`, or `--split-file splits.csv`. The script supports any additional image-classification task via these same formats. Record the selected tasks in `tasks.json` and client task ownership in the training configuration.
 
 The installation includes SciPy for SVHN's MATLAB files. Automatic downloads use torchvision's checksum validation and Python's safe tar data filter; use an up-to-date Python 3.11 or 3.12 patch release.
 
@@ -67,11 +67,11 @@ flwr run . --run-config "config=\"$(pwd)/configs/vision-small.json\" output=\"$(
   --federation-config 'num-supernodes=2 init-args-num-cpus=2' --stream
 ```
 
-This optimizes real image data with a small randomly initialized backbone; it is a functional check, **not a paper configuration**. The original-scale `configs/vision.json` selects the pretrained ViT-B/32 and 30 clients. For CUDA, configure Ray's per-client GPU allocation in addition to `"device": "cuda"`:
+This small configuration trains two image tasks with a randomly initialized backbone. The larger `configs/vision.json` selects the pretrained ViT-B/32 and 30 clients. For CUDA, configure Ray's per-client GPU allocation in addition to `"device": "cuda"`:
 
 ```bash
 flwr run . --run-config "config=\"$(pwd)/configs/vision.json\" output=\"$(pwd)/runs/vision-01\"" \
   --federation-config 'num-supernodes=30 client-resources-num-cpus=1 client-resources-num-gpus=1' --stream
 ```
 
-GPU availability limits concurrent clients; the server also evaluates on the configured device. Reserve enough memory for both workloads. This CUDA command is documented but not hardware-validated in this revision. On a multi-machine deployment, provisioning shared paths and credentials is your responsibility; the supplied app is tested as a local simulation.
+GPU availability limits concurrent clients; the server also evaluates on the configured device. Reserve enough memory for both workloads. The supplied app runs local simulations. Worker processes require access to the configured data and model paths.

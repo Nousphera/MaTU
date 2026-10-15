@@ -89,7 +89,7 @@ def downloaded_records(dataset, cache):
         # Keep this policy scoped to construction/download, not iteration.
         with safe_tar_downloads():
             data = factories[dataset](split)
-        # DTD validation is kept out of the maintained training split.
+        # DTD validation is kept out of the training split.
         for index in range(len(data)):
             image, label = data[index]
             yield split, str(int(label)), image, f"{dataset}/{split}/{index}"

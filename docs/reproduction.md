@@ -1,91 +1,57 @@
-# Reproduction and paper correspondence
+# Method and experiment settings
 
-Reference: [arXiv:2502.06376v3](https://arxiv.org/pdf/2502.06376v3), 8 July 2025.
+MaTU combines task-specific LoRA updates into one vector per client, accompanied by binary masks and scalar rescalers. The server aggregates related tasks and returns a unified vector tailored to each client's task set.
 
-| Paper | Code | Interpretation |
+Reference: [Many-Task Federated Fine-Tuning via Unified Task Vectors](https://arxiv.org/abs/2502.06376).
+
+## Paper-to-code map
+
+| Component | Code | Operation |
 | --- | --- | --- |
-| Shared pretrained origin | `training.adapter_vector`, `set_adapter` | Adapter differences from a common deterministic initialization; backbone frozen |
-| Eq. 2 and modulators | `core.unify` | Sign of vector sum, maximum aligned magnitude, mask task×unified>0, L1-ratio scale |
-| Eq. 3 | `core.aggregate` | Default absolute mean signs; signed alternative reproduces the literal equation |
-| Eq. 4 | `core.aggregate` | Reconstruct client task vector, apply sample weights and task agreement mask; scale applied once |
-| Eq. 5 | `core.aggregate` | (mean(sign(a)×sign(b))+1)/2; zero coordinates contribute 0.5 |
-| Eq. 6 | `core.aggregate` | Self excluded, similarity strictly >0.5, top-κ, weights not normalized |
-| Eq. 7 | `core.aggregate` | Default sum; optional mean follows overview prose |
-| Return unification | `training.run`, `flower.main` | Unify the tasks assigned to each selected client |
+| Shared pretrained origin | `training.adapter_vector`, `set_adapter` | Adapter differences from a common deterministic initialization; frozen backbone |
+| Unification and modulators, Eq. 2 | `core.unify` | Sign of vector sum, maximum aligned magnitude, positive-alignment mask, L1-ratio scale |
+| Agreement, Eq. 3 | `core.aggregate` | Absolute mean signs by default; signed mode available |
+| Same-task aggregation, Eq. 4 | `core.aggregate` | Sample-weighted task vectors with an agreement mask; scale applied once |
+| Task similarity, Eq. 5 | `core.aggregate` | `(mean(sign(a) * sign(b)) + 1) / 2`; zero coordinates contribute 0.5 |
+| Cross-task transfer, Eq. 6 | `core.aggregate` | Exclude self, select similarity above 0.5 and top-κ neighbors; unnormalized weights |
+| Combination, Eq. 7 | `core.aggregate` | Sum of same-task and cross-task terms by default; mean mode available |
+| Client redistribution | `training.run`, `flower.main` | Unify the tasks assigned to each selected client |
 
-## Explicit reconstruction choices
+## Aggregation settings
 
-Eq. 3 writes signed agreement without an absolute value. Applied literally, unanimous negative updates receive a negative mask and can reverse direction. The default uses agreement magnitude; `agreement="signed"` exposes the literal form for investigation. This is a disclosed correction, not evidence about the missing original implementation.
+- **Agreement:** `agreement="absolute"` uses the magnitude of mean signs, so consistent positive and negative updates both receive agreement one. `agreement="signed"` implements the signed expression printed in Eq. 3; negative agreement can reverse an update's direction.
+- **Combination:** `combine="sum"` follows Eq. 7. `combine="mean"` averages the same-task and cross-task terms when related tasks exist.
+- **Related tasks:** `top_k=2` selects at most two neighbors above the similarity threshold. Set it explicitly for each experiment.
+- **Zero coordinates:** exact sign ties produce zero; an entirely erased task receives scale zero. Unification is a lossy representation.
 
-Eq. 7 adds same-task and cross-task terms, while the overview says they are averaged. Default `combine="sum"` follows the equation; `combine="mean"` averages when related tasks exist. The paper does not specify top-κ for every experiment; the supplied 2 is a runnable setting, not a recovered hyperparameter.
+## Model and task configuration
 
-Exact sign ties yield zero. An entirely erased task gets scale zero, avoiding division by zero; lost information cannot be reconstructed. The representation is not lossless.
+The vision backend uses a timm ViT with rank-`r` qkv LoRA adapters and unit LoRA scale. Federated linear probing first trains shared task classifiers; those heads and the backbone are then frozen while the adapters are optimized.
 
-The vision reference uses a `timm` ViT qkv adapter, rank r and unit LoRA scale. Shared task classifiers are obtained with a separate federated linear-probing phase, then frozen. The paper does not fully specify classifier handling, adapter targets/scaling, optimizer, learning rate, augmentation or exact data manifests. Align these choices before claiming benchmark reproduction.
+Client class partitions use seeded Dirichlet sampling with repair of empty partitions. Set `assignments` to declare each client's tasks. The default assigns every task to every client; use explicit task ownership for heterogeneous studies. Keep task ownership, class partitions, optimizer, augmentation and adapter settings with the dataset manifests so comparisons use the same experimental conditions.
 
-Class allocation uses seeded Dirichlet sampling with minimal repair of empty clients. Task ownership is explicit through `assignments`; the paper's ζt generator has not been recovered. Default all-task ownership is not its eight-task or 30-task experiment.
+See [dataset preparation](datasets.md) for official splits, CSV imports, task manifests and image configurations. Test examples are excluded from optimization and checkpoint selection.
 
-## Source provenance
+## Execution and outputs
 
-Recovery examined the authors' `many_task_fl` source, research-server snapshot and archived `matu` project. They contain dataset/adapter training, TIES-style merging and later DINOv2/audio experiments. The archived `matu.py` actually performs sequential per-task fine-tuning; it does not implement federated unification or aggregation. It was not republished as a complete MaTU artifact.
-
-This implementation is independently written from the public paper using public PyTorch, torchvision, timm and Flower APIs. No private Git history, unpublished logs, datasets or credentials are included. Author-side recovery manifests preserve original hashes.
-
-## Validation
-
-On 2026-10-15, a fresh macOS arm64 environment with Python 3.11.15, PyTorch
-2.14.1, torchvision 0.29.1, timm 1.0.30, Flower 1.40.0 and Ray 2.55.1 passed
-`pip check` and all **14 tests**. This includes actual CPU optimization, a timm
-vision-model forward/backward pass and Flower Message API checks.
-
-The sequential and Flower commands both completed `configs/smoke.json` unchanged
-(three clients, three tasks, three rounds and two head-probing rounds):
+The native Flower App and sequential runner share the same training and aggregation implementation. Follow the [README](../README.md#training) for `flwr run`; use the sequential runner when debugging locally:
 
 ```bash
-matu --config configs/smoke.json --output runs/current-sequential
-matu --flower --config configs/smoke.json --output runs/current-flower
+matu --config configs/smoke.json --output runs/sequential-01
+python -m pytest
 ```
 
-Both runs preserved the frozen-backbone hash, changed the adapters, and produced
-identical partition indices and per-round accuracy. Saved task vectors and heads
-agreed within `rtol=1e-6, atol=1e-6` (largest absolute difference `1.79e-7`).
-Transport byte counts differ because Flower adds its records. These are execution
-checks on synthetic data, not evidence of paper accuracy.
+Flower 1.40 accepts flat federation overrides, such as `num-supernodes=3 client-resources-num-cpus=1 init-args-num-cpus=2`. Confirm `finished:completed` and the expected round count in `metrics.json`; the CLI exit status alone does not identify all worker failures.
 
-The maintained dependency pins exclude the PyTorch versions affected by
-[GHSA-53q9-r3pm-6pq6](https://github.com/advisories/GHSA-53q9-r3pm-6pq6),
-which is fixed starting at 2.6.0. The exact tested environment is recorded in
-[`requirements-tested-macos-py311.txt`](../requirements-tested-macos-py311.txt).
-Linux/CUDA and the complete vision benchmark have not been validated on this stack.
+| Artifact | Contents |
+| --- | --- |
+| `config.json` | Effective model, task, optimizer, seed and execution settings |
+| `partitions.json` | Exact client training indices |
+| `metrics.json` | Per-task accuracy, round count, adapter change, frozen-backbone hash and communication |
+| `final.pt` | Adapter origin, task vectors, task heads and configuration |
 
-`python -m pytest` and the smoke configuration exercise forward/backward optimization, modulation, payload roundtrips, aggregation, evaluation and checkpoint writing. The frozen-backbone check detects unintended parameter changes and records a SHA-256 digest of parameter names and bytes. Archive the exact pretrained checkpoint as well as this digest for image experiments; the timm model name alone is not an immutable weight revision.
+Communication counts include serialized records and payloads; head-probing traffic is separate. TCP/TLS framing is outside these counters. Restore adapters and heads with the matching pretrained timm backbone. Archive its checkpoint and SHA-256 alongside the environment snapshot in [`requirements-tested-macos-py311.txt`](../requirements-tested-macos-py311.txt).
 
-Test data is never used for optimization or checkpoint selection. The checkpoint records task vectors and heads; reconstructing the full pretrained model additionally requires the selected timm weights. Save configuration and dependency versions with every run.
+## Tests
 
-No paper result is claimed as reproduced. Larger vision benchmarks require acquired datasets and substantial compute; record those commands and results separately.
-
-
-### Dataset setup and native CLI follow-up
-
-The preparation CLI supports official torchvision downloads for MNIST, SVHN,
-GTSRB and DTD, plus explicit ImageFolder/CSV imports for the remaining tasks.
-It records hashes and source paths, preserves raw data and rejects split overlap.
-`manifest` paths in training configs now resolve relative to the config file;
-relative app configs resolve within the unpacked Flower bundle, not the SuperLink's cwd.
-
-On 2026-10-15, the complete suite passed 19 tests. The actual `flwr run .`
-command completed the three-client/three-task/three-round synthetic configuration,
-with two head-probing rounds, changed adapters and an unchanged backbone.
-A separate native run imported two generated ImageFolder tasks (8 train and
-8 test images per task), trained a random `vit_tiny_patch16_224` with rank-2
-LoRA on two clients for one round, and saved real model/metric artifacts.
-Both runs had Flower status `finished:completed`. The image run retained the
-frozen-backbone hash and transmitted 158,918 upload bytes and 167,124 download
-bytes. These fixtures validate execution, not benchmark accuracy.
-
-Native Flower 1.40 uses flat federation overrides, such as
-`num-supernodes=3 client-resources-num-cpus=1 init-args-num-cpus=2`.
-The old TOML federation block was removed because automatic migration changes
-behavior across fresh user configurations. The README supplies explicit counts.
-Runtime failures can still leave the CLI exit code at zero; inspect the saved
-metrics and Flower run status rather than relying only on shell success.
+The suite covers task modulation, aggregation conventions, payload round trips, dataset integrity, numerical optimization, frozen-backbone invariants, timm forward/backward execution and Flower transport. Synthetic and small image fixtures provide fast end-to-end checks before running prepared datasets.

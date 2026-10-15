@@ -381,9 +381,9 @@ class Experiment:
             ),
             "backbone_unchanged": frozen_hash(self.model) == frozen_digest,
             "backbone_sha256": frozen_digest,
-            "scope": "execution smoke"
+            "scope": "synthetic training"
             if cfg["backend"] == "synthetic"
-            else "user dataset run; not paper-result reproduction",
+            else "image classification",
         }
         (output / "metrics.json").write_text(json.dumps(result, indent=2) + "\n")
         (output / "config.json").write_text(json.dumps(cfg, indent=2) + "\n")
