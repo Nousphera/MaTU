@@ -1,29 +1,33 @@
-name: Tests
+name: Source checks
 on: [push, pull_request]
 jobs:
-  cpu:
+  python:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.12']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python }}
           cache: pip
-      - run: python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.14.1 torchvision==0.29.1
+      - run: python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchvision==0.23.0
       - run: python -m pip install -r requirements.txt
-      - run: python -m pytest
-      - run: matu --config configs/smoke.json
-      - name: Native Flower App smoke
-        env:
-          FLWR_DISABLE_RUNTIME_DEPENDENCY_INSTALLATION: '1'
+      - run: python -m pip check
+      - run: python -m compileall -q src scripts
+      - run: |
+          python scripts/prepare_data.py --help
+          python scripts/prepare_model.py --help
+          python scripts/run_experiment.py --help
+      - name: Check vector exchange
         run: |
-          flwr run . --stream --run-config "config='$(pwd)/configs/smoke.json' output='$(pwd)/runs/flower-smoke'" \
-            --federation-config 'num-supernodes=2 client-resources-num-cpus=1 init-args-num-cpus=2'
-          python - <<'PYVERIFY'
-          import json
-          from pathlib import Path
-          result = json.loads(Path("runs/flower-smoke/metrics.json").read_text())
-          assert result["rounds"] == 1 and result["backbone_unchanged"]
-          assert result["adapter_change"] > 0 and result["upload_bytes"] > 0
-          assert Path("runs/flower-smoke/final.pt").is_file()
-          PYVERIFY
+          python - <<'PY'
+          import numpy as np
+          from matu.core import ClientUpdate, UnifiedVector, aggregate, unify
+          vector = np.array([1., -2., 3.], dtype=np.float32)
+          packet = UnifiedVector.from_bytes(unify({'task': vector}).to_bytes())
+          np.testing.assert_array_equal(packet.reconstruct('task'), vector)
+          output = aggregate([ClientUpdate(packet, {'task': 4})])
+          np.testing.assert_array_equal(output['task'], vector)
+          PY

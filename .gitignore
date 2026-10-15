@@ -3,11 +3,16 @@ __pycache__/
 .venv*/
 *.egg-info/
 .pytest_cache/
+.ruff_cache/
 runs/
 data/
-configs/tasks.json
+checkpoints/
+results/
+raw/
 *.pt
 *.pth
+*.safetensors
 *.fab
 dist/
 build/
+.DS_Store
