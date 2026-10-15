@@ -22,6 +22,10 @@ matu-data = "matu.prepare_data:main"
 [tool.setuptools.packages.find]
 include = ["matu*"]
 
+[tool.setuptools.data-files]
+"share/matu/tests" = ["tests/*.py"]
+"share/matu/configs" = ["configs/smoke.json", "configs/vision.json", "configs/tasks.example.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
