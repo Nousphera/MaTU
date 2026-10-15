@@ -39,40 +39,27 @@ python -m pip install -r requirements.txt
 
 ## Data and Weights
 
-Prepare **MNIST, SVHN, GTSRB, DTD and EuroSAT**:
+Download and prepare **MNIST, SVHN, GTSRB, DTD and EuroSAT** from [**MaTU-30**](https://huggingface.co/datasets/vtsouval/MaTU-30):
 
 ```bash
-python scripts/prepare_data.py --benchmark small --split-policy stratified
+python scripts/prepare_data.py --benchmark small --hf-repo vtsouval/MaTU-30
 ```
 
 > [!NOTE]
-> Official train/test splits are preserved. EuroSAT uses a seeded 80/20 split; DTD uses partition 1, excluding validation images.
+> Downloads are pinned to their Hub revision. Dataset-specific splits and original licence conditions are listed in the [collection card](https://huggingface.co/datasets/vtsouval/MaTU-30).
 
 <details>
 <summary><strong>All 30 Datasets</strong></summary>
 
-| Preparation | Dataset keys |
-| :--- | :--- |
-| Automatic download | `mnist`, `svhn`, `gtsrb`, `dtd`, `cifar10`, `cifar100`, `fashionmnist`, `emnist`, `food101`, `pets`, `stl10` |
-| Download + `--split-policy stratified` | `eurosat`, `sun397` |
-| Acquired sources | `animals10n`, `beans`, `cars`, `catsdogs`, `cub200`, `dogs`, `flowers`, `fruits`, `garbage`, `intel`, `kenyanfood`, `kvasir_v2`, `landscape`, `mangoleaf`, `resisc45`, `vegetables`, `weather` |
-
-Download acquired datasets through the [source catalog](src/matu/catalog.py). Custom imports retain their supplied classes and splits. Use `train/<class>/...` and `test/<class>/...` folders, an EMR `samples.txt`/`class_names.txt` pair, or a CSV with `path,split,label` columns:
+Prepare the complete collection:
 
 ```bash
-# One acquired dataset
-python scripts/prepare_data.py --dataset cars --source-dir raw/cars
-
-# Explicit split annotations
-python scripts/prepare_data.py --dataset dogs --source-dir raw/dogs --split-file dogs.csv
-
-# All 30 tasks: sources.json maps dataset keys to source directories
-python scripts/prepare_data.py --benchmark thirty --source-map sources.json --split-policy stratified
+python scripts/prepare_data.py --benchmark thirty --hf-repo vtsouval/MaTU-30
 ```
 
-A staged collection can be loaded with `--hf-repo /path/to/MaTU-30`; combine it with `--source-map sources.json` for tasks acquired separately.
+Use `--benchmark eight` for the eight-task benchmark, or `--dataset eurosat` for one task. Local mirrors are supported with `--hf-repo /path/to/MaTU-30`.
 
-A source-map entry can also specify `{"path":"raw/dogs","split_file":"dogs.csv"}` or `{"path":"raw/cifar10","format":"torchvision"}`. EMNIST is **Balanced**, Flowers is **Flowers Recognition (5 classes)**, and Fruits is the **24-class Fruits-360 original-size collection**.
+EMNIST is **Balanced**, Flowers is **Flowers Recognition (5 classes)**, and Fruits is the **24-class Fruits-360 original-size collection**. The [dataset card](https://huggingface.co/datasets/vtsouval/MaTU-30#configurations) lists every task, class count and split.
 
 </details>
 
