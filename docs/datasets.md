@@ -49,14 +49,14 @@ Start with two prepared datasets. Save this as `configs/vision-small.json`:
 {
   "backend": "imagefolder",
   "manifest": "tasks.json",
-  "model": "vit_tiny_patch16_224",
-  "pretrained": false,
+  "model": "vit_base_patch32_224.augreg_in21k",
+  "pretrained": true,
   "clients": 2,
   "rounds": 2,
   "head_rounds": 1,
   "local_epochs": 1,
-  "batch_size": 16,
-  "rank": 2,
+  "batch_size": 1,
+  "rank": 16,
   "device": "cpu",
   "output": "runs/vision-small"
 }
@@ -67,7 +67,7 @@ flwr run . --run-config "config=\"$(pwd)/configs/vision-small.json\" output=\"$(
   --federation-config 'num-supernodes=2 init-args-num-cpus=2' --stream
 ```
 
-This small configuration trains two image tasks with a randomly initialized backbone. The larger `configs/vision.json` selects the pretrained ViT-B/32 and 30 clients. For CUDA, configure Ray's per-client GPU allocation in addition to `"device": "cuda"`:
+This configuration trains two prepared image tasks using the paper's pretrained ViT-B/32 and rank-16 adapters. It reduces the client count, rounds and batch size while retaining the architecture. The larger `configs/vision.json` uses 30 clients. For an offline bounded execution check on generated images, use `configs/smoke.json`, which explicitly sets `pretrained=false` on the same full ViT-B/32. For CUDA, configure Ray's per-client GPU allocation in addition to `"device": "cuda"`:
 
 ```bash
 flwr run . --run-config "config=\"$(pwd)/configs/vision.json\" output=\"$(pwd)/runs/vision-01\"" \

@@ -27,7 +27,7 @@ def test_import_is_verified_and_consumable_by_training(tmp_path):
         dict(
             DEFAULTS,
             backend="imagefolder",
-            model="vit_tiny_patch16_224",
+            model="vit_base_patch32_224.augreg_in21k",
             manifest=str(result / "tasks.json"),
         )
     )
@@ -72,7 +72,7 @@ def test_training_rejects_symlink_overlap_without_preparation(tmp_path):
             dict(
                 DEFAULTS,
                 backend="imagefolder",
-                model="vit_tiny_patch16_224",
+                model="vit_base_patch32_224.augreg_in21k",
                 manifest=str(manifest),
             )
         )

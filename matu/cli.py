@@ -9,7 +9,7 @@ from .configuration import load_app_config
 
 def main():
     parser = argparse.ArgumentParser(description="MaTU many-task federated training")
-    parser.add_argument("--config", type=Path, default=Path("configs/smoke.json"))
+    parser.add_argument("--config", type=Path, default=Path("configs/vision.json"))
     parser.add_argument("--output", type=Path)
     parser.add_argument(
         "--flower",

@@ -33,5 +33,5 @@ serverapp = "matu.flower:server_app"
 clientapp = "matu.flower:client_app"
 
 [tool.flwr.app.config]
-config = "configs/smoke.json"
+config = "configs/vision.json"
 output = ""

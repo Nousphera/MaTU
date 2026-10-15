@@ -1,1 +1,20 @@
-{"backend":"synthetic","seed":42,"rounds":3,"clients":3,"tasks":3,"samples":96,"local_epochs":1,"batch_size":16,"learning_rate":0.01,"rank":4,"participation":1.0,"head_rounds":2,"top_k":2,"output":"runs/smoke"}
+{
+  "backend": "synthetic-images",
+  "model": "vit_base_patch32_224.augreg_in21k",
+  "pretrained": false,
+  "seed": 42,
+  "rounds": 1,
+  "clients": 2,
+  "tasks": 2,
+  "samples": 2,
+  "local_epochs": 1,
+  "batch_size": 1,
+  "learning_rate": 0.0001,
+  "rank": 16,
+  "participation": 1.0,
+  "head_rounds": 1,
+  "top_k": 2,
+  "torch_threads": 1,
+  "device": "cpu",
+  "output": "runs/smoke"
+}

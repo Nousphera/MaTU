@@ -15,7 +15,16 @@ from matu.training import DEFAULTS, Experiment
 
 def test_flower_client_trains_real_adapter_from_wire_message():
     TaskIdentity.run_id, TaskIdentity.node_id, TaskIdentity.task_id = 0, 0, 0
-    cfg = dict(DEFAULTS, clients=2, tasks=2, samples=16, head_rounds=0)
+    cfg = dict(
+        DEFAULTS,
+        clients=2,
+        tasks=2,
+        samples=2,
+        head_rounds=0,
+        backend="synthetic-images",
+        pretrained=False,
+        batch_size=1,
+    )
     experiment = Experiment(cfg)
     packet = unify(experiment.global_vectors)
     request = Message(

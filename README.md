@@ -10,7 +10,7 @@ Vasileios Tsouvalas · Tanir Ozcelebi · Nirvana Meratnia · FedGenAI @ IJCAI 20
 
 Federated Learning (FL) traditionally assumes homogeneous client tasks; however, in real-world scenarios, clients often specialize in diverse tasks, introducing task heterogeneity. To address this challenge, Many-Task FL (MaT-FL) has emerged, enabling clients to collaborate effectively despite task diversity. Existing MaT-FL approaches rely on client grouping or personalized layers, requiring the server to manage individual models and failing to account for clients handling multiple tasks. We propose MaTU, a MaT-FL approach that enables joint learning of task vectors across clients, eliminating the need for clustering or client-specific weight storage at the server. MaTU constructs a single “unified” task vector per client and leverages lightweight task-specific modulators — binary masks and scalar rescalers — to disentangle and adapt per-task behavior. This design ensures stateless server aggregation and naturally scales to large task sets with minimal communication overhead. Evaluated across 30 datasets, MaTU achieves superior performance over state-of-the-art MaT-FL approaches, with results comparable to per-task fine-tuning, while delivering significant communication savings.
 
-**Implementation:** task-specific LoRA training, unified-vector exchange, related-task aggregation and a native Flower App. See the [method guide](docs/reproduction.md) for the equation-to-code map and aggregation settings.
+**Implementation:** task-specific LoRA training, unified-vector exchange, related-task aggregation and a native Flower App. See the [method settings](#method-and-aggregation-settings) for the equation-to-code map and aggregation settings.
 
 [![MaTU client task-vector unification and server aggregation, with task-specific masks and scales.](docs/assets/readme/overview.webp)](https://nousphera.github.io/MaTU/#overview)
 
@@ -68,21 +68,21 @@ Preparation preserves raw files, checks decoding and class consistency, rejects 
 
 ## Training
 
-A three-client, three-task CPU execution check needs no dataset or model download:
-
-```bash
-flwr run . --run-config 'output="/tmp/matu-smoke"' \
-  --federation-config 'num-supernodes=3 init-args-num-cpus=2 client-resources-num-cpus=1' --stream
-```
-
-Use a new output directory for every run. The app performs task-head probing, local LoRA training, unified-vector exchange, same-task aggregation and cross-task transfer.
-
-For prepared images, edit `configs/vision.json` (device, client count and experiment size), then run:
+The native app and CLI default to `configs/vision.json`: the paper's ImageNet-21k-pretrained ViT-B/32 with rank-16 adapters and prepared image tasks. Edit its device, client count and experiment size, then run:
 
 ```bash
 flwr run . --run-config "config=\"$(pwd)/configs/vision.json\" output=\"$(pwd)/runs/vision-01\"" \
   --federation-config 'num-supernodes=30' --stream
 ```
+
+For an explicit offline CPU execution check, `configs/smoke.json` keeps the same full ViT-B/32 and rank-16 adapters with random initialization (`pretrained=false`). It uses two clients, two tasks, two generated training images per task and one round:
+
+```bash
+flwr run . --run-config "config=\"$(pwd)/configs/smoke.json\" output=\"$(pwd)/runs/smoke-01\"" \
+  --federation-config 'num-supernodes=2 init-args-num-cpus=2 client-resources-num-cpus=1' --stream
+```
+
+This checks probing, local LoRA training, unified-vector exchange and aggregation on generated 224×224 images. It does not measure pretrained accuracy or reproduce the paper benchmarks. Use a fresh output directory for each run.
 
 `num-supernodes` must equal the JSON `clients` value. `manifest` resolves relative to its JSON config; dataset paths resolve relative to the task manifest. Use absolute config/output paths for worker processes. The paper-sized example uses ImageNet-21k-pretrained ViT-B/32, rank-16 adapters and CUDA; weights download through timm on first use. GPU scheduling instructions and a smaller image configuration are in [the dataset guide](docs/datasets.md).
 
@@ -102,7 +102,7 @@ The image configuration loads `vit_base_patch32_224.augreg_in21k` through
 [timm](https://huggingface.co/timm/vit_base_patch32_224.augreg_in21k).
 The backbone stays frozen while rank-16 qkv LoRA adapters are trained. Record the
 weight revision and SHA-256 with each run; `final.pt` saves the adapters and task
-heads to combine with that backbone. The synthetic configuration uses no download.
+heads to combine with that backbone. The explicit offline smoke configuration initializes the same full architecture from scratch and uses no download. Unsupported architectures are rejected; pretrained-loading errors never trigger a substitute model.
 
 ## Evaluation
 
@@ -115,7 +115,7 @@ python -m json.tool runs/vision-01/metrics.json
 ```
 
 Use `partitions.json`, `config.json` and the prepared task manifests to compare the
-same client/task allocation across methods. The [method guide](docs/reproduction.md)
+same client/task allocation across methods. The [method settings](#method-and-aggregation-settings)
 defines agreement, related-task transfer and serialized-byte accounting.
 
 ## Outputs and configuration
@@ -133,6 +133,35 @@ For a sequential debugging run with the same method:
 matu --config configs/smoke.json --output runs/sequential-01
 python -m pytest
 ```
+
+## Method and aggregation settings
+
+| Component | Code | Operation |
+| --- | --- | --- |
+| Shared pretrained origin | `training.adapter_vector`, `set_adapter` | Adapter differences from a common deterministic initialization; frozen backbone |
+| Unification and modulators, Eq. 2 | `core.unify` | Sign of vector sum, maximum aligned magnitude, positive-alignment mask, L1-ratio scale |
+| Agreement, Eq. 3 | `core.aggregate` | Absolute mean signs by default; signed mode available |
+| Same-task aggregation, Eq. 4 | `core.aggregate` | Sample-weighted task vectors with an agreement mask; scale applied once |
+| Task similarity, Eq. 5 | `core.aggregate` | `(mean(sign(a) * sign(b)) + 1) / 2`; zero coordinates contribute 0.5 |
+| Cross-task transfer, Eq. 6 | `core.aggregate` | Exclude self, select similarity above 0.5 and top-κ neighbors; unnormalized weights |
+| Combination, Eq. 7 | `core.aggregate` | Sum of same-task and cross-task terms by default; mean mode available |
+| Client redistribution | `training.run`, `flower.main` | Unify the tasks assigned to each selected client |
+
+### Aggregation settings
+
+- **Agreement:** `agreement="absolute"` uses the magnitude of mean signs, so consistent positive and negative updates both receive agreement one. `agreement="signed"` implements the signed expression printed in Eq. 3; negative agreement can reverse an update's direction.
+- **Combination:** `combine="sum"` follows Eq. 7. `combine="mean"` averages the same-task and cross-task terms when related tasks exist.
+- **Related tasks:** `top_k=2` selects at most two neighbors above the similarity threshold. Set it explicitly for each experiment.
+- **Zero coordinates:** exact sign ties produce zero; an entirely erased task receives scale zero. Unification is a lossy representation.
+
+### Model and task configuration
+
+The model is the paper's timm ViT-B/32 (`vit_base_patch32_224.augreg_in21k`), with rank-`r` qkv LoRA adapters and unit LoRA scale; the default rank is 16. Federated linear probing first trains shared task classifiers; those heads and the backbone are then frozen while the adapters are optimized.
+
+Client class partitions use seeded Dirichlet sampling with repair of empty partitions. Set `assignments` to declare each client's tasks. The default assigns every task to every client; use explicit task ownership for heterogeneous studies. Keep task ownership, class partitions, optimizer, augmentation and adapter settings with the dataset manifests so comparisons use the same experimental conditions.
+
+See [dataset preparation](docs/datasets.md) for official splits, CSV imports, task manifests and image configurations. Test examples are excluded from optimization and checkpoint selection.
+
 
 ## Results
 

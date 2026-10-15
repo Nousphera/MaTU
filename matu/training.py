@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, Subset, TensorDataset
 from .core import ClientUpdate, UnifiedVector, aggregate, unify
 
 DEFAULTS = dict(
-    backend="synthetic",
+    backend="imagefolder",
     seed=42,
     rounds=3,
     clients=3,
@@ -24,7 +24,7 @@ DEFAULTS = dict(
     local_epochs=1,
     batch_size=16,
     learning_rate=0.01,
-    rank=4,
+    rank=16,
     participation=1.0,
     dirichlet_alpha=0.5,
     top_k=2,
@@ -33,9 +33,11 @@ DEFAULTS = dict(
     combine="sum",
     head_rounds=2,
     device="cpu",
-    output="runs/smoke",
+    output="runs/vision",
     model="vit_base_patch32_224.augreg_in21k",
-    manifest=None,
+    manifest="configs/tasks.json",
+    pretrained=True,
+    torch_threads=1,
 )
 
 
@@ -62,11 +64,10 @@ def seed_all(seed):
 
 def make_backbone(config):
     seed_all(config["seed"])
-    if config["backend"] == "synthetic":
-        model = nn.Sequential(LoRALinear(nn.Linear(12, 24), config["rank"]), nn.Tanh())
-        return model, 24
-    if config["backend"] != "imagefolder":
-        raise ValueError("backend must be synthetic or imagefolder")
+    if config["model"] != "vit_base_patch32_224.augreg_in21k":
+        raise ValueError("Use the paper ViT-B/32: vit_base_patch32_224.augreg_in21k")
+    if config["backend"] not in {"synthetic-images", "imagefolder"}:
+        raise ValueError("backend must be imagefolder or synthetic-images")
     import timm
 
     model = timm.create_model(
@@ -137,13 +138,12 @@ def dirichlet_partition(labels, clients, alpha, seed):
 
 def load_tasks(config):
     """Separate test sets are never used for fitting or model selection."""
-    if config["backend"] == "synthetic":
+    if config["backend"] == "synthetic-images":
         generator = torch.Generator().manual_seed(config["seed"] + 19)
         tasks = {}
         for index in range(config["tasks"]):
-            teacher = torch.randn(12, 3, generator=generator)
-            x = torch.randn(config["samples"] * 2, 12, generator=generator)
-            y = (x @ teacher).argmax(1)
+            x = torch.randn(config["samples"] * 2, 3, 224, 224, generator=generator)
+            y = torch.arange(config["samples"] * 2) % 3
             n = config["samples"]
             tasks[f"task-{index}"] = (
                 TensorDataset(x[:n], y[:n]),
@@ -176,8 +176,12 @@ def load_tasks(config):
         )
         if train.class_to_idx != test.class_to_idx:
             raise ValueError(f"{name}: train/test class mappings differ")
-        train_ids = {(Path(p).stat().st_dev, Path(p).stat().st_ino) for p, _ in train.samples}
-        test_ids = {(Path(p).stat().st_dev, Path(p).stat().st_ino) for p, _ in test.samples}
+        train_ids = {
+            (Path(p).stat().st_dev, Path(p).stat().st_ino) for p, _ in train.samples
+        }
+        test_ids = {
+            (Path(p).stat().st_dev, Path(p).stat().st_ino) for p, _ in test.samples
+        }
         if train_ids & test_ids:
             raise ValueError(f"{name}: train/test files overlap")
         tasks[name] = (train, test, len(train.classes), np.asarray(train.targets))
@@ -278,6 +282,7 @@ class Experiment:
             < 1
         ):
             raise ValueError("Invalid training configuration")
+        torch.set_num_threads(cfg["torch_threads"])
         self.model, dimension = make_backbone(cfg)
         self.origin = adapter_vector(self.model)
         self.model.to(cfg["device"])
@@ -381,9 +386,11 @@ class Experiment:
             ),
             "backbone_unchanged": frozen_hash(self.model) == frozen_digest,
             "backbone_sha256": frozen_digest,
-            "scope": "synthetic training"
-            if cfg["backend"] == "synthetic"
-            else "image classification",
+            "scope": (
+                "synthetic-image execution check"
+                if cfg["backend"] == "synthetic-images"
+                else "image classification"
+            ),
         }
         (output / "metrics.json").write_text(json.dumps(result, indent=2) + "\n")
         (output / "config.json").write_text(json.dumps(cfg, indent=2) + "\n")

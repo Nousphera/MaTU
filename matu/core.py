@@ -1,6 +1,6 @@
 """MaTU task unification and many-task aggregation.
 
-Equations refer to arXiv:2502.06376v3. See docs/reproduction.md for
+Equations refer to arXiv:2502.06376v3. See README.md (Method and aggregation settings) for
 the configurable agreement and combination rules for Eq. 3 and Eq. 7.
 No model, network, filesystem, or random-state side effects occur here.
 """

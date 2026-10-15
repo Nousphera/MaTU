@@ -9,7 +9,10 @@ def test_two_rounds_train_and_preserve_backbone(tmp_path):
         rounds=2,
         clients=2,
         tasks=2,
-        samples=24,
+        samples=2,
+        backend="synthetic-images",
+        pretrained=False,
+        batch_size=1,
         local_epochs=1,
         head_rounds=1,
         seed=17,
@@ -36,7 +39,7 @@ def test_partitions_cover_samples_once_and_keep_clients_nonempty():
 
 
 def test_lora_only_updates_adapters_and_task_head():
-    model, dim = training.make_backbone(dict(training.DEFAULTS))
+    model, dim = training.make_backbone(dict(training.DEFAULTS, pretrained=False))
     original = {
         n: p.detach().clone()
         for n, p in model.named_parameters()
@@ -49,7 +52,7 @@ def test_lora_only_updates_adapters_and_task_head():
     )
     opt.zero_grad()
     torch.nn.functional.cross_entropy(
-        head(model(torch.randn(4, 12))), torch.tensor([0, 1, 2, 0])
+        head(model(torch.randn(1, 3, 224, 224))), torch.tensor([0])
     ).backward()
     opt.step()
     assert all(
@@ -68,8 +71,8 @@ def test_vision_qkv_adapter_forward_without_downloading_weights():
     cfg = dict(
         training.DEFAULTS,
         backend="imagefolder",
-        model="vit_tiny_patch16_224",
-        rank=2,
+        model="vit_base_patch32_224.augreg_in21k",
+        rank=16,
         pretrained=False,
     )
     model, dimension = training.make_backbone(cfg)
@@ -90,3 +93,20 @@ def test_run_refuses_to_overwrite_existing_outputs(tmp_path):
     with pytest.raises(FileExistsError):
         training.run(dict(training.DEFAULTS, output=str(tmp_path)))
     assert (tmp_path / "metrics.json").read_text() == "previous experiment"
+
+
+def test_default_backbone_uses_full_paper_vit_b32_without_weights():
+    torch.set_num_threads(1)
+    model, dimension = training.make_backbone(dict(training.DEFAULTS, pretrained=False))
+    assert dimension == 768
+    assert len(model.blocks) == 12
+    assert model.patch_embed.patch_size == (32, 32)
+
+
+def test_nonpaper_backbones_are_rejected():
+    import pytest
+
+    with pytest.raises(ValueError, match="paper"):
+        training.make_backbone(
+            dict(training.DEFAULTS, model="vit_small_patch32_224", pretrained=False)
+        )
