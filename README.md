@@ -25,7 +25,14 @@ python -m pip install --upgrade pip
 python -m pip install -e '.[flower,test]'
 ```
 
-The maintained stack pins PyTorch 2.14.1, torchvision 0.29.1, timm 1.0.30 and Flower 1.40.0. For Linux CPU, install PyTorch/torchvision from their [CPU wheel index](https://pytorch.org/get-started/locally/) before the editable install. The CPU setup and tests are verified; full GPU benchmarks are not rerun.
+The maintained stack pins PyTorch 2.14.1, torchvision 0.29.1, timm 1.0.30 and Flower 1.40.0. On **Linux CPU**, run this before the editable install to avoid downloading CUDA libraries:
+
+```bash
+python -m pip install --index-url https://download.pytorch.org/whl/cpu \
+  torch==2.14.1 torchvision==0.29.1
+```
+
+For CUDA, select compatible wheels using the [PyTorch installation guide](https://pytorch.org/get-started/locally/). The CPU setup and tests are verified; full GPU benchmarks are not rerun.
 
 ## Prepare datasets
 
