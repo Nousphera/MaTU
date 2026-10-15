@@ -4,19 +4,24 @@
 
 <p align="center">
   <a href="https://arxiv.org/abs/2502.06376" title="Read the paper"><img src="docs/assets/icons/resource-paper.svg" width="48" height="48" alt="Paper"></a>
-  &nbsp;&nbsp;&nbsp;
+  <picture><img src="docs/assets/icons/resource-separator.svg" width="20" height="48" alt=""></picture>
   <a href="https://nousphera.github.io/MaTU/" title="Explore the project"><img src="docs/assets/icons/resource-project.svg" width="48" height="48" alt="Project"></a>
-  &nbsp;&nbsp;&nbsp;
+  <picture><img src="docs/assets/icons/resource-separator.svg" width="20" height="48" alt=""></picture>
   <a href="https://nousphera.github.io/assets/posters/matu-a0-landscape.pdf" title="View the poster"><img src="docs/assets/icons/resource-poster.svg" width="48" height="48" alt="Poster"></a>
 </p>
 
 ## Abstract
 
-**MaTU** enables federated fine-tuning when clients learn **multiple, different tasks**. Each client combines its task updates into one *unified vector*, accompanied by lightweight **binary masks and scalar rescalers** that recover task-specific behavior. The server aggregates updates within tasks and transfers information between related tasks, without maintaining a separate model for every client. The paper evaluates this approach across **30 vision datasets**, studying the balance between accuracy, task heterogeneity and communication cost.
+**MaTU** enables federated fine-tuning when clients learn **multiple, different tasks**. Each client expresses its task updates relative to a *shared pretrained model* and communicates **one unified vector**, together with lightweight *binary masks and scalar rescalers*. The server combines **same-task updates** and selectively transfers information between *related tasks*, then returns new unified vectors and modulators for clients to recover their task-specific updates. This design reduces communication and avoids retaining client-specific weights at the server. Evaluated across **30 vision datasets**, MaTU approaches *per-task fine-tuning performance* while supporting heterogeneous task assignments.
 
 <p align="center">
-  <a href="https://nousphera.github.io/MaTU/#overview">
-    <img src="docs/assets/readme/overview.webp" width="960" alt="MaTU unifies each client's task vectors, aggregates related tasks, and reconstructs task-specific updates with binary masks and scales.">
+  <a href="docs/assets/readme/method-light.mp4" title="Watch the method video">
+    <picture>
+      <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="docs/assets/readme/method-dark-mobile.gif">
+      <source media="(max-width: 600px)" srcset="docs/assets/readme/method-light-mobile.gif">
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/method-dark.gif">
+      <img src="docs/assets/readme/method-light.gif" alt="MaTU: clients train task vectors, unify aligned coordinates and upload masks and scales. The server aggregates same-task updates, transfers related-task information, and returns updates for client reconstruction." width="960">
+    </picture>
   </a>
 </p>
 
@@ -27,11 +32,11 @@ Create and activate the `matu` environment:
 ```bash
 git clone https://github.com/Nousphera/MaTU.git
 cd MaTU
-bash scripts/setup.sh
+python3.12 -m venv --prompt matu "$HOME/.venvs/matu"
 source "$HOME/.venvs/matu/bin/activate"
 ```
 
-From an existing environment, install the requirements with:
+From the activated `matu` environment, install the requirements:
 
 ```bash
 python -m pip install -r requirements.txt
@@ -39,33 +44,22 @@ python -m pip install -r requirements.txt
 
 ## Data and Weights
 
-Download and prepare **MNIST, SVHN, GTSRB, DTD and EuroSAT** from [**MaTU-30**](https://huggingface.co/datasets/vtsouval/MaTU-30):
+Download and prepare your benchmark from [**MaTU-30**](https://huggingface.co/datasets/vtsouval/MaTU-30):
 
 ```bash
+# Five tasks: MNIST, SVHN, GTSRB, DTD and EuroSAT
 python scripts/prepare_data.py --benchmark small --hf-repo vtsouval/MaTU-30
-```
 
-> [!NOTE]
-> Downloads are pinned to their Hub revision. Dataset-specific splits and original licence conditions are listed in the [collection card](https://huggingface.co/datasets/vtsouval/MaTU-30).
-
-<details>
-<summary><strong>All 30 Datasets</strong></summary>
-
-Prepare the complete collection:
-
-```bash
+# All 30 tasks
 python scripts/prepare_data.py --benchmark thirty --hf-repo vtsouval/MaTU-30
 ```
 
-Use `--benchmark eight` for the eight-task benchmark, or `--dataset eurosat` for one task. Local mirrors are supported with `--hf-repo /path/to/MaTU-30`.
-
-EMNIST is **Balanced**, Flowers is **Flowers Recognition (5 classes)**, and Fruits is the **24-class Fruits-360 original-size collection**. The [dataset card](https://huggingface.co/datasets/vtsouval/MaTU-30#configurations) lists every task, class count and split.
-
-</details>
+> [!NOTE]
+> Use `--benchmark eight` for eight tasks or `--dataset eurosat` for one. Task variants, splits and source licences are listed in the [dataset card](https://huggingface.co/datasets/vtsouval/MaTU-30#configurations).
 
 ### Prepare Model
 
-Download the pretrained **ImageNet-21k ViT-B/32** checkpoint:
+Download the pretrained **ImageNet-21k ViT-B/32** encoder:
 
 ```bash
 python scripts/prepare_model.py
@@ -73,29 +67,53 @@ python scripts/prepare_model.py
 
 ## Run Experiments
 
-From the repository root, run a native **Flower App**:
+From the repository root, set the shared **Flower App** options and run your chosen method:
 
 ```bash
+# Shared five-task settings
 common=(--benchmark small --nr-clients 30 --participation 0.2
         --local-epochs 1 --batch-size 32 --task-alpha 0.5
         --dirichlet-alpha 0.1 --device cuda)
 
 # MaTU (Ours)
-python -m matu.experiment "${common[@]}" --method matu
+python scripts/run_experiment.py "${common[@]}" --method matu
 
-# Baselines
-for method in fedavg fedprox fedper matfl ntk-fedavg centralized; do
-  python -m matu.experiment "${common[@]}" --method "$method"
-done
+# FedAvg
+python scripts/run_experiment.py "${common[@]}" --method fedavg
+
+# FedProx
+python scripts/run_experiment.py "${common[@]}" --method fedprox
+
+# FedPer
+python scripts/run_experiment.py "${common[@]}" --method fedper
+
+# MaT-FL
+python scripts/run_experiment.py "${common[@]}" --method matfl
+
+# NTK-FedAvg
+python scripts/run_experiment.py "${common[@]}" --method ntk-fedavg
+
+# Per-task centralized fine-tuning
+python scripts/run_experiment.py "${common[@]}" --method centralized
 ```
 
 > [!NOTE]
-> All methods train **rank-16 query/value LoRA** with a frozen backbone and probed task classifiers. FedPer keeps its final-block adapters and classifiers private. Centralized training fits each task independently.
+> All methods use **rank-16 query/value LoRA** with a frozen backbone and probed task classifiers. Runs use **100 rounds** (**300** for MaT-FL); metrics and adapter weights are saved in `results/`.
 
-Select `--benchmark eight`, `--benchmark thirty`, or `--datasets mnist svhn`. Without explicit overrides, `thirty` uses 300 rounds, full participation and task concentration 0.2; MaT-FL uses 300 rounds. Use `--task-alpha 0` for single-task clients, or `--tasks-per-client N` for fixed task counts. Set `--parallel-clients N` to run clients concurrently; `--device cpu` and `--device mps` are also supported.
+<details>
+<summary><strong>All 30 Tasks</strong></summary>
 
-> [!NOTE]
-> Each run saves its configuration, task accuracies and adapter weights in `results/`. MaTU evaluates **reconstructed client models**; reported accuracy is the mean across tasks.
+Run the complete benchmark with full client participation:
+
+```bash
+python scripts/run_experiment.py --method matu --benchmark thirty \
+  --nr-clients 30 --rounds 300 --participation 1 --task-alpha 0.2 \
+  --dirichlet-alpha 0.1 --local-epochs 1 --batch-size 32 --device cuda
+```
+
+Replace `--method matu` with any baseline above.
+
+</details>
 
 ## Citation
 
@@ -108,3 +126,5 @@ Select `--benchmark eight`, `--benchmark thirty`, or `--datasets mnist svhn`. Wi
   url={https://arxiv.org/abs/2502.06376}
 }
 ```
+
+[MIT License](LICENSE)
