@@ -17,6 +17,8 @@ Use `python -m matu.prepare_data --help` for the complete CLI. The output is a p
 
 Downloaded task commands accept `--root data`. All other tasks accept `--source /path/to/data` with `train/<class>/...` and `test/<class>/...`, or `--split-file splits.csv`. The script supports any additional image-classification task via these same formats. Exact original eight/30-task membership, partitions and task ownership are not recovered automatically.
 
+The installation includes SciPy for SVHN's MATLAB files. Automatic downloads use torchvision's checksum validation and Python's safe tar data filter; use an up-to-date Python 3.11 or 3.12 patch release.
+
 ## Explicit split CSV
 
 ```csv
@@ -37,7 +39,7 @@ python -m matu.prepare_data --combine data/mnist/tasks.json data/custom-task/tas
   --output configs/tasks.json
 ```
 
-Preparation refuses existing destinations. Validation rejects changed, missing or added images. Keep `dataset.json` with the run outputs. Train/test partitions are fixed during preparation; the client Dirichlet partition uses only training samples.
+Preparation refuses existing destinations. Validation rejects changed, missing or added images. Combining prepared tasks verifies each dataset and requires its generated task name and train/test paths to match `dataset.json`; it rejects redirected or swapped splits. Keep `dataset.json` with the run outputs. Train/test partitions are fixed during preparation; the client Dirichlet partition uses only training samples.
 
 ## Small image run
 

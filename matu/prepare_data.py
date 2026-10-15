@@ -1,6 +1,7 @@
 """Prepare verified, portable ImageFolder tasks without modifying raw data."""
 
 import argparse
+from contextlib import contextmanager
 import csv
 import hashlib
 import json
@@ -9,6 +10,7 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+import tarfile
 
 from PIL import Image
 
@@ -49,7 +51,20 @@ def source_records(source, split_file=None):
                     rel = path.relative_to(source / split)
                     if len(rel.parts) < 2:
                         raise ValueError("Images must be inside class directories")
-                    yield split, rel.parts[0], path
+                    yield split, rel.parts[0], safe_path(source, path.relative_to(source))
+
+
+@contextmanager
+def safe_tar_downloads():
+    """Apply the data filter to torchvision's unfiltered tar extraction calls."""
+    if not hasattr(tarfile, "data_filter"):
+        raise RuntimeError("Automatic downloads require an updated Python 3.11 or 3.12")
+    previous = vars(tarfile.TarFile).get("extraction_filter")
+    tarfile.TarFile.extraction_filter = staticmethod(tarfile.data_filter)
+    try:
+        yield
+    finally:
+        tarfile.TarFile.extraction_filter = previous
 
 
 def downloaded_records(dataset, cache):
@@ -70,7 +85,10 @@ def downloaded_records(dataset, cache):
             "Automatic download supports mnist, svhn, gtsrb and dtd; use --source/--split-file for other tasks"
         )
     for split in ("train", "test"):
-        data = factories[dataset](split)
+        # torchvision 0.29 delegates tar extraction to the process default.
+        # Keep this policy scoped to construction/download, not iteration.
+        with safe_tar_downloads():
+            data = factories[dataset](split)
         # DTD validation is kept out of the maintained training split.
         for index in range(len(data)):
             image, label = data[index]
@@ -213,8 +231,12 @@ def combine(manifests, destination):
     combined = {}
     for manifest in manifests:
         manifest = Path(manifest).resolve()
-        validate(manifest.parent)
-        for name, splits in json.loads(manifest.read_text()).items():
+        data = validate(manifest.parent)
+        tasks = json.loads(manifest.read_text())
+        expected = {data["dataset"]: {"train": "train", "test": "test"}}
+        if tasks != expected:
+            raise ValueError("Task manifest must name the validated dataset and its train/test splits")
+        for name, splits in tasks.items():
             if name in combined:
                 raise ValueError(f"Duplicate task: {name}")
             combined[name] = {
@@ -222,7 +244,8 @@ def combine(manifests, destination):
                 for split, path in splits.items()
             }
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(json.dumps(combined, indent=2) + "\n")
+    with destination.open("x") as stream:
+        stream.write(json.dumps(combined, indent=2) + "\n")
 
 
 def main():

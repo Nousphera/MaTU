@@ -14,7 +14,7 @@ This is a **paper-based reference implementation** with real LoRA optimization a
 
 ## Setup
 
-Use **Python 3.11 or 3.12** on Linux or macOS. Keep the virtual environment in a path without spaces so Ray can start its workers.
+Use an up-to-date **Python 3.11 or 3.12** on Linux or macOS. Keep the virtual environment in a path without spaces so Ray can start its workers.
 
 ```bash
 git clone https://github.com/Nousphera/MaTU.git
@@ -78,8 +78,8 @@ Flower 1.40 runs a managed local SuperLink. If another project already has one r
 
 ```bash
 export FLWR_HOME="$HOME/.cache/matu-flower"
-export FLWR_LOCAL_SUPERLINK_HTTP_API_PORT=39131
-export FLWR_LOCAL_CONTROL_API_PORT=39133
+export FLWR_LOCAL_SUPERLINK_HTTP_API_PORT=39135
+export FLWR_LOCAL_CONTROL_API_PORT=39137
 ```
 
 See [Flower's simulation guide](https://flower.ai/docs/framework/how-to-run-simulations.html). Worker machines must have access to the configured data paths. This repository targets local research simulations.
