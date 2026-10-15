@@ -27,10 +27,10 @@ cd MaTU
 python3.11 -m venv "$HOME/.venvs/matu"
 source "$HOME/.venvs/matu/bin/activate"
 python -m pip install --upgrade pip
-python -m pip install -e '.[flower,test]'
+python -m pip install -r requirements.txt
 ```
 
-The environment pins PyTorch 2.14.1, torchvision 0.29.1, timm 1.0.30 and Flower 1.40.0. On **Linux CPU**, run this before the editable install to avoid downloading CUDA libraries:
+The environment pins PyTorch 2.14.1, torchvision 0.29.1, timm 1.0.30 and Flower 1.40.0. On **Linux CPU**, run this before installing `requirements.txt` to avoid downloading CUDA libraries:
 
 ```bash
 python -m pip install --index-url https://download.pytorch.org/whl/cpu \

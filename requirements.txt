@@ -1,0 +1,2 @@
+# Training, Flower simulation and tests.
+-e .[flower,test]
