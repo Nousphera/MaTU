@@ -44,18 +44,18 @@ python -m pip install -r requirements.txt
 
 ## Data and Weights
 
-Download and prepare your benchmark from [**MaTU-30**](https://huggingface.co/datasets/vtsouval/MaTU-30):
+Download and prepare your benchmark from [**MaTU-30**](https://huggingface.co/datasets/Nousphera/MaTU-30):
 
 ```bash
 # Five tasks: MNIST, SVHN, GTSRB, DTD and EuroSAT
-python scripts/prepare_data.py --benchmark small --hf-repo vtsouval/MaTU-30
+python scripts/prepare_data.py --benchmark small --hf-repo Nousphera/MaTU-30
 
 # All 30 tasks
-python scripts/prepare_data.py --benchmark thirty --hf-repo vtsouval/MaTU-30
+python scripts/prepare_data.py --benchmark thirty --hf-repo Nousphera/MaTU-30
 ```
 
 > [!NOTE]
-> Use `--benchmark eight` for eight tasks or `--dataset eurosat` for one. Task variants, splits and source licences are listed in the [dataset card](https://huggingface.co/datasets/vtsouval/MaTU-30#configurations).
+> Use `--benchmark eight` for eight tasks or `--dataset eurosat` for one. Task variants, splits and source licences are listed in the [dataset card](https://huggingface.co/datasets/Nousphera/MaTU-30#configurations).
 
 ### Prepare Model
 

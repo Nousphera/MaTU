@@ -359,8 +359,8 @@ def main(argv=None):
     parser.add_argument(
         "--hf-repo",
         nargs="?",
-        const="vtsouval/MaTU-30",
-        help="Read a collection config; defaults to vtsouval/MaTU-30 when supplied without a value",
+        const="Nousphera/MaTU-30",
+        help="Read a collection config; defaults to Nousphera/MaTU-30 when supplied without a value",
     )
     parser.add_argument("--revision", help="Pin the Hugging Face collection revision")
     parser.add_argument(

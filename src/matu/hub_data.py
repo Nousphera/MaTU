@@ -61,7 +61,7 @@ def validate_hub_files(source, name, records):
         raise ValueError("Collection requires train and test shards")
 
 
-def prepare_huggingface(name, root, repo_id="vtsouval/MaTU-30", revision=None):
+def prepare_huggingface(name, root, repo_id="Nousphera/MaTU-30", revision=None):
     """Download one pixel-bearing config, pin its revision and verify all records.
 
     A local collection directory is also accepted for offline mirrors. Metadata
